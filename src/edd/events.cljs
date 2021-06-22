@@ -58,4 +58,9 @@
   (fn [db [_ {:keys [key] :as item}]]
     (assoc db [::db/menu key] item)))
 
+(rf/reg-event-db
+ ::remove-user
+ (fn [db]
+   (assoc-in db [::db/user] nil)))
+
 

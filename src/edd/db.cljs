@@ -1,7 +1,8 @@
 (ns edd.db)
 
 (def default-db
-  {::active-panel      :home
+  {::user              nil
+   ::active-panel      :home
    ::drawer            false
    ::ready             true
    ::selected-language :de
