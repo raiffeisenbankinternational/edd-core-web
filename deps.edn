@@ -2,7 +2,8 @@
            secretary/secretary         {:mvn/version "2.0.0.1-260a59"}
            bidi/bidi                   {:mvn/version "2.1.6"}
            kibu/pushy                  {:mvn/version "0.3.8"}
-           thheller/shadow-cljs        {:mvn/version "2.14.2"}}
+           thheller/shadow-cljs        {:mvn/version "2.14.2"}
+           cljs-ajax                   {:mvn/version "0.8.0"}}
 
  :paths   ["src" "resources"],
  :aliases {:jar      {:extra-paths ["resources"]
@@ -10,9 +11,12 @@
                       :main-opts   ["-m" "cambada.jar"
                                     "-m" "lambda.core"
                                     "-m" "--copy-source "]},
-           :test     {:extra-paths ["test"],
+           :dev       {:extra-paths ["test/clj" "test/cljs"]
+                      :extra-deps  {org.clojure/test.check {:mvn/version "1.0.0"}}}
+           :test     {:extra-paths ["test/clj" "test/cljs"],
                       :extra-deps  {org.clojure/test.check {:mvn/version "1.0.0"}}},
-           :unit     {:extra-deps {lambdaisland/kaocha {:mvn/version "1.0.700"}},
+           :unit     {:extra-paths ["test/clj" "test/cljs"]
+                      :extra-deps {lambdaisland/kaocha {:mvn/version "1.0.700"}},
                       :main-opts  ["-m" "kaocha.runner", "unit"]}
            :it       {:extra-deps {lambdaisland/kaocha {:mvn/version "1.0.700"}},
                       :main-opts  ["-m" "kaocha.runner", "it"]}

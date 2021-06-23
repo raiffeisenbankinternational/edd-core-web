@@ -4,13 +4,14 @@ ARG DOCKER_ORG
 FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b844
 
 ARG ARTIFACT_ORG
-ENV PROJECT_NAME edd-core-web
+ENV PROJECT_NAME edd.edd-core-web
 
 # Custom build here
 COPY src src
+COPY test test
 COPY deps.edn deps.edn
 
-RUN set -e && clj -A:test:unit
+RUN set -e && clojure -A:test:unit
 
 ARG BUILD_ID
 RUN echo "Building b${BUILD_ID}" &&\

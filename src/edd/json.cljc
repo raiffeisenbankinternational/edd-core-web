@@ -3,6 +3,10 @@
             [clojure.string :as str]
             [ajax.json :as ajax-json]))
 
+(defn read-uuid [val]
+  #?(:cljs (uuid val)
+     :clj  (java.util.UUID/fromString val)))
+
 (defn parse-custom-fields
   [edn]
   (postwalk (fn [x]
@@ -10,7 +14,7 @@
                 (and (string? x)
                      (str/starts-with? x ":")) (keyword (subs x 1))
                 (and (string? x)
-                     (str/starts-with? x "#")) (uuid (subs x 1))
+                     (str/starts-with? x "#")) (read-uuid (subs x 1))
                 :else x))
             edn))
 
@@ -34,11 +38,15 @@
   [edn]
   (fmap convert edn))
 
+(defn read-json [raw keywords? text]
+  #?(:clj  (ajax-json/read-json-cheshire raw keywords? (char-array text))
+     :cljs (ajax-json/read-json-native raw keywords? text)))
+
 (defn custom-json-parser
   [& params]
-  (-> (apply ajax-json/read-json-native params)
+  (-> (apply read-json params)
       (parse-custom-fields)))
 
 (def custom-response-format
   (ajax-json/make-json-response-format
-    custom-json-parser))
+   custom-json-parser))
