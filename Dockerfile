@@ -4,7 +4,7 @@ ARG DOCKER_ORG
 FROM ${DOCKER_URL}/${DOCKER_ORG}/common-img:b844
 
 ARG ARTIFACT_ORG
-ENV PROJECT_NAME edd.edd-core-web
+ENV PROJECT_NAME edd-core-web
 
 # Custom build here
 COPY src src
