@@ -14,7 +14,10 @@
    [day8.re-frame.http-fx :refer [http-effect]]))
 
 (def interaction-id
-  (or (.-interactionId js/params) (str "#" (random-uuid))))
+  (if
+    (and (exists? js/params) (.-interactionId js/params))
+    (.-interactionId js/params)
+    (str "#" (random-uuid))))
 
 (defn service-uri [db service path]
   (str "https://" (name service) "." (get-in db [:config :HostedZoneName]) path))
