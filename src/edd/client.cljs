@@ -2,38 +2,50 @@
   (:require
    [reagent.core :as r]
    [re-frame.core :as rf]
+   [goog.object :as g]
+   [day8.re-frame.http-fx :refer [http-effect]]
+   [edd.events :as events]
    [ajax.core :as ajax]
-   [ajax.json :as ajax.json]
    [ajax.protocols :refer [-body -get-response-header -get-all-headers]]
    [ajax.interceptors :refer [map->ResponseFormat]]
-   [day8.re-frame.http-fx :refer [http-effect]]
    [edd.json :as json]
    [edd.db :as db]
-   [edd.events :as events]
    [clojure.string :as string]
-   [day8.re-frame.http-fx :refer [http-effect]]))
+   [edd.client-utils :as utils]))
 
-(def interaction-id
-  (if
-    (and (exists? js/params) (.-interactionId js/params))
-    (.-interactionId js/params)
-    (str "#" (random-uuid))))
+(deftype MockHeaders [headers]
+  Object
+  (get [_] nil))
 
-(defn service-uri [db service path]
-  (str "https://" (name service) "." (get-in db [:config :HostedZoneName]) path))
+(deftype MockResponse [body status headers]
+  Object
+  (json [_] body)
+  (-status [_] status)
+  (-headers [_] headers))
+
+(defn mock-response [mock-func call-params]
+  (let [mock-result (mock-func call-params)]
+    (print mock-result)
+    (MockResponse. (:body mock-result) (:status mock-result) (MockHeaders. {"versionid" "mock-response"}))))
+
+(defn service-uri [service path]
+  (let [db @re-frame.db/app-db]
+    (str "https://" (name service) "." (get-in db [:config :HostedZoneName]) path)))
 
 (defn add-user
-  [req db]
-  (assoc req
-         :user
-         {:selected-role (get-in db [::db/user :selected-role])}))
+  [req]
+  (let [db @re-frame.db/app-db]
+    (assoc req
+           :user
+           {:selected-role (get-in db [::db/user :selected-role])})))
 
 (defn add-headers
-  [db req]
-  (merge {"X-Authorization" (get-in db [::db/user :id-token])
-          "Accept"          "*/*"
-          "Content-Type"    "application/json"}
-         req))
+  [req]
+  (let [db @re-frame.db/app-db]
+    (merge {"X-Authorization" (get-in db [::db/user :id-token])
+            "Accept"          "*/*"
+            "Content-Type"    "application/json"}
+           req)))
 
 (defn add-get-headers
   [db req]
@@ -53,68 +65,58 @@
           uri
           (clj->js params)))
 
+(defn do-post [uri body-str {:keys [on-success on-failure]}]
+  (fetch uri {:method          :post
+              :mode            :cors
+              :body            (.stringify js/JSON body-str)
+              :timeout         20000
+              :response-format (json/custom-response-format {:keywords? true})
+              :headers         (add-headers {})
+              :on-success      on-success
+              :on-failure      on-failure}))
+
 (defn query
-  [db {:keys [query service on-success on-failure]}]
-  (let [uri (service-uri db service (str "/query"
-                                         "?dbg_service=" service
-                                         "&dbg_qid=" (:query-id query)))
+  [{:keys [query service] :as props}]
+  (let [uri (service-uri service (str "/query"
+                                      "?dbg_service=" service
+                                      "&dbg_qid=" (:query-id query)))
         ref {:request-id     (str "#" (random-uuid))
-             :interaction-id interaction-id
+             :interaction-id utils/interaction-id
              :query          query}
-        body-str (clj->js (json/encode-custom-fields (add-user ref db)))]
-    (fetch uri {:method          :post
-                :mode            :cors
-                :body            (.stringify js/JSON body-str)
-                :timeout         20000
-                :response-format (json/custom-response-format {:keywords? true})
-                :headers         (add-headers db {})
-                :on-success      on-success
-                :on-failure      on-failure})))
+        body-str (clj->js (json/encode-custom-fields (add-user ref)))
+        mock-func-name (str "mock." (name service) "." (name (:query-id query)))
+        mock-func (g/get js/window mock-func-name)]
+    (if (some? mock-func)
+      (mock-response mock-func query)
+      (do-post uri body-str props))))
 
 (defn commands
-  [db {:keys [commands service on-success on-failure]}]
-  (let [uri (service-uri db service (str "/command"
-                                         "?dbg_service=" service
-                                         "&dbg_cmds=" (string/join "," (map :cmd-id commands))))
+  [{:keys [commands service] :as props}]
+  (let [uri (service-uri service (str "/command"
+                                      "?dbg_service=" service
+                                      "&dbg_cmds=" (string/join "," (map :cmd-id commands))))
         ref {:request-id     (str "#" (random-uuid))
-             :interaction-id interaction-id
+             :interaction-id utils/interaction-id
              :commands       commands}
-        body-str (clj->js (json/encode-custom-fields (add-user ref db)))]
-    (fetch uri {:method          :post
-                :mode            :cors
-                :body            (.stringify js/JSON body-str)
-                :timeout         20000
-                :response-format (json/custom-response-format {:keywords? true})
-                :headers         (add-headers db {})
-                :on-success      on-success
-                :on-failure      on-failure})))
+        body-str (clj->js (json/encode-custom-fields (add-user ref)))
+        mock-func-name (str "mock." (name service) "." (reduce str (map #(name (:cmd-id %)) commands)))
+        mock-func (g/get js/window mock-func-name)]
+    (if (some? mock-func)
+      (mock-response mock-func commands)
+      (do-post uri body-str props))))
 
 (defn call [data]
-  (let [db @re-frame.db/app-db]
-    (cond
-      (:query data) (query db data)
-      (:commands data) (commands db data)
-      (:command data) (commands db (assoc data
-                                          :commands
-                                          [(:command data)]))
-      :else nil)))
-
-(defn json-and-header-response
-  []
-  (map->ResponseFormat
-   {:read         (fn json-read-response-format [xhrio]
-                    (.log js/console xhrio)
-                    {:body       (ajax.json/read-json-native nil true (-body xhrio))
-                     :version-id (-get-response-header xhrio "versionid")
-                     :headers    (-get-all-headers xhrio)})
-    :description  "JSON with headers"
-    :content-type ["application/json"]}))
+  (cond
+    (:query data) (query data)
+    (:commands data) (commands data)
+    (:command data) (commands (assoc data
+                                     :commands
+                                     [(:command data)]))
+    :else nil))
 
 (rf/reg-event-fx
  ::save-success
  (fn [_ [_ on-success result]]
-   (println result)
-   (println on-success)
    {:dispatch (conj on-success {:version-id (:version-id result)
                                 :id         (get-in result [:body :result :id])})}))
 
@@ -157,75 +159,69 @@
             :headers (add-put-headers db {})
             :body    data})))
 
-(defn- handle-invalid-jwt []
+(defn handle-invalid-jwt []
   (print "invalid token")
   (rf/dispatch [::events/remove-user]))
 
-(defn- handle-versioning-error [call]
+(defn handle-versioning-error [call]
   (-> call
       (assoc :error :wrong-version)
       (dissoc :body)))
 
-(defn- handle-error [call itm]
+(defn handle-error [call itm]
   (-> call
       (assoc :error (json/parse-custom-fields (:error itm)))
       (dissoc :body)))
 
-(defn read-responses
+(defn resolve-calls-hooks [event-body]
+  (doall
+   (mapv
+    (fn [it]
+      (let [item (:item it)
+            {:keys [on-success]} item
+            {:keys [on-failure]} item
+            result (:result it)]
+        (if (and
+             (some some? event-body)
+             result)
+          (do (when on-success
+                (rf/dispatch (vec (concat on-success [it]))))
+              true)
+          (do (when on-failure
+                (rf/dispatch (vec (concat on-failure [it]))))
+              false))))
+    event-body)))
+
+(defn filter-results [values response-filter items bodies]
+  (vec
+   (map-indexed
+    (fn [idx itm]
+      (cond
+        (= ":invalid" (get-in itm [:error :jwt])) (handle-invalid-jwt)
+        (= "Wrong version" (:error itm)) (handle-versioning-error (get values idx))
+        (contains? itm :error) (handle-error (get values idx) itm)
+        :else (-> (get values idx)
+                  (assoc :result (:result itm))
+                  (#(if response-filter
+                      (response-filter %)
+                      %))
+                  (assoc :item (get items idx))
+                  (dissoc :body))))
+    (js->clj bodies :keywordize-keys true))))
+
+(defn handle-responses
   [items
    responses & {:keys [on-success on-failure response-filter]}]
-  (let [values (mapv
-                (fn [r]
-                  {:version-id (-> r
-                                   (.-headers)
-                                   (.get "versionid"))
-                   :status     (.-status r)
-                   :body       (.json r)})
-                (keep identity responses))
-        failed (first
-                (filter
-                 #(not= (:status %)
-                        200)
-                 values))]
-    (if-not failed
+  (let [values (utils/map-responses responses)]
+    (if-not (utils/failed? values)
       (-> (js/Promise.all
            (clj->js
             (map
              #(:body %)
              values)))
           (.then (fn [bodies]
-                   (let [event-body
-                         (vec
-                          (map-indexed
-                           (fn [idx itm]
-                             (cond
-                               (= ":invalid" (get-in itm [:error :jwt])) (handle-invalid-jwt)
-                               (= "Wrong version" (:error itm)) (handle-versioning-error (get values idx))
-                               (contains? itm :error) (handle-error (get values idx) itm)
-                               :else (-> (get values idx)
-                                         (assoc :result (:result itm))
-                                         (#(if response-filter
-                                             (response-filter %)
-                                             %))
-                                         (assoc :item (get items idx))
-                                         (dissoc :body))))
-                           (js->clj bodies :keywordize-keys true)))
-                         successes (doall
-                                    (mapv
-                                     (fn [it]
-                                       (let [item (:item it)
-                                             {:keys [on-success]} item
-                                             result (:result it)]
-                                         (if (and
-                                              (some some? event-body)
-                                              result)
-                                           (do (when on-success
-                                                 (rf/dispatch (vec (concat on-success [it]))))
-                                               true)
-                                           (do (when on-failure
-                                                 (rf/dispatch (vec (concat on-failure [it]))))
-                                               false))))
-                                     event-body))]
+                   (let [event-body (filter-results values response-filter items bodies)
+                         successes (resolve-calls-hooks event-body)]
                      (if (some false? successes)
                        (rf/dispatch (vec (concat on-failure event-body)))
                        (rf/dispatch (vec (concat on-success event-body))))))))
@@ -235,7 +231,7 @@
   [items & {:keys [on-success on-failure]}]
   (let [requests (map fetch-document items)]
     (-> (js/Promise.all (clj->js requests))
-        (.then #(read-responses
+        (.then #(handle-responses
                  items
                  %
                  :on-success on-success
@@ -264,7 +260,7 @@
   [items & {:keys [on-success on-failure]}]
   (let [requests (map call (filterv identity items))]
     (-> (js/Promise.all (clj->js requests))
-        (.then #(read-responses
+        (.then #(handle-responses
                  items
                  %
                  :on-success on-success
