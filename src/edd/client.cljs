@@ -135,15 +135,19 @@
               "https://" (name :glms-document-svc)
               "." (get-in db [:config :HostedZoneName])
               "/load/" (name service)
-              "/" ref)]
-     (http-effect
-      {:method          method
-       :uri             uri
-       :timeout         50000
-       :response-format (ajax/raw-response-format)
-       :headers         (add-get-headers db {})
-       :on-success      on-success
-       :on-failure      on-failure}))))
+              "/" ref)
+         mock-func-name (str "mock.load." (name service))
+         mock-func (g/get js/window mock-func-name)]
+     (if (some? mock-func)
+       (rf/dispatch (vec (concat on-success [(mock-func ref)])))
+       (http-effect
+        {:method          method
+         :uri             uri
+         :timeout         50000
+         :response-format (ajax/raw-response-format)
+         :headers         (add-get-headers db {})
+         :on-success      on-success
+         :on-failure      on-failure})))))
 
 (defn fetch-document
   [{:keys [data service]}]
@@ -152,12 +156,16 @@
              "https://" (name :glms-document-svc)
              "." (get-in db [:config :HostedZoneName])
              "/save/" (name service)
-             "/" (random-uuid))]
-    (fetch uri
-           {:mode    "cors"
-            :method  "PUT"
-            :headers (add-put-headers db {})
-            :body    data})))
+             "/" (random-uuid))
+        mock-func-name (str "mock.save." (name service))
+        mock-func (g/get js/window mock-func-name)]
+    (if (some? mock-func)
+      (mock-response mock-func data)
+      (fetch uri
+             {:mode    "cors"
+              :method  "PUT"
+              :headers (add-put-headers db {})
+              :body    data}))))
 
 (defn handle-invalid-jwt []
   (print "invalid token")
