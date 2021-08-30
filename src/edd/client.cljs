@@ -132,8 +132,8 @@
    (let [db @re-frame.db/app-db
          method :get
          uri (str
-              "https://" (name :glms-document-svc)
-              "." (get-in db [:config :HostedZoneName])
+              "https://glms-content-svc."
+              (get-in db [:config :HostedZoneName])
               "/load/" (name service)
               "/" ref)
          mock-func-name (str "mock.load." (name service))
@@ -149,12 +149,12 @@
          :on-success      on-success
          :on-failure      on-failure})))))
 
-(defn fetch-document
+(defn fetch-content
   [{:keys [data service]}]
   (let [db @re-frame.db/app-db
         uri (str
-             "https://" (name :glms-document-svc)
-             "." (get-in db [:config :HostedZoneName])
+             "https://glms-content-svc."
+             (get-in db [:config :HostedZoneName])
              "/save/" (name service)
              "/" (random-uuid))
         mock-func-name (str "mock.save." (name service))
@@ -237,7 +237,7 @@
 
 (defn save-n
   [items & {:keys [on-success on-failure]}]
-  (let [requests (map fetch-document items)]
+  (let [requests (map fetch-content items)]
     (-> (js/Promise.all (clj->js requests))
         (.then #(handle-responses
                  items

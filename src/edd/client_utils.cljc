@@ -1,8 +1,7 @@
 (ns edd.client-utils)
 
 (def interaction-id
-  #?(:cljs (if
-            (and (exists? js/params) (.-interactionId js/params))
+  #?(:cljs (if (and (exists? js/params) (.-interactionId js/params))
              (.-interactionId js/params)
              (str "#" (random-uuid)))
      :clj  (java.util.UUID/randomUUID)))
