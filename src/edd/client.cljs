@@ -39,25 +39,24 @@
            :user
            {:selected-role (get-in db [::db/user :selected-role])})))
 
-(defn add-headers
-  [req]
+(defn make-headers
+  []
   (let [db @re-frame.db/app-db]
-    (merge {"X-Authorization" (get-in db [::db/user :id-token])
-            "Accept"          "*/*"
-            "Content-Type"    "application/json"}
-           req)))
+    {"X-Authorization" (get-in db [::db/user :id-token])
+     "Accept"          "*/*"
+     "Content-Type"    "application/json"}))
 
-(defn add-get-headers
-  [db req]
-  (merge {"X-Authorization" (get-in db [::db/user :id-token])
-          "Accept"          "*/*"}
-         req))
+(defn make-get-headers
+  []
+  (let [db @re-frame.db/app-db]
+    {"X-Authorization" (get-in db [::db/user :id-token])
+     "Accept"          "*/*"}))
 
-(defn add-put-headers
-  [db req]
-  (merge {"X-Authorization" (get-in db [::db/user :id-token])
-          "Accept"          "*/*"}
-         req))
+(defn make-put-headers
+  []
+  (let [db @re-frame.db/app-db]
+    {"X-Authorization" (get-in db [::db/user :id-token])
+     "Accept"          "*/*"}))
 
 (defn fetch
   [uri params]
@@ -71,7 +70,7 @@
               :body            (.stringify js/JSON body-str)
               :timeout         20000
               :response-format (json/custom-response-format {:keywords? true})
-              :headers         (add-headers {})
+              :headers         (make-headers)
               :on-success      on-success
               :on-failure      on-failure}))
 
@@ -129,34 +128,23 @@
 (rf/reg-fx
  :load
  (fn [{:keys [ref service on-success on-failure]}]
-   (let [db @re-frame.db/app-db
-         method :get
-         uri (str
-              "https://glms-content-svc."
-              (get-in db [:config :HostedZoneName])
-              "/load/" (name service)
-              "/" ref)
+   (let [uri (service-uri :glms-content-svc (str "/load/" (name service) "/" ref))
          mock-func-name (str "mock.load." (name service))
          mock-func (g/get js/window mock-func-name)]
      (if (some? mock-func)
        (rf/dispatch (vec (concat on-success [(mock-func ref)])))
        (http-effect
-        {:method          method
+        {:method          :get
          :uri             uri
          :timeout         50000
          :response-format (ajax/raw-response-format)
-         :headers         (add-get-headers db {})
+         :headers         (make-get-headers)
          :on-success      on-success
          :on-failure      on-failure})))))
 
 (defn fetch-content
   [{:keys [data service]}]
-  (let [db @re-frame.db/app-db
-        uri (str
-             "https://glms-content-svc."
-             (get-in db [:config :HostedZoneName])
-             "/save/" (name service)
-             "/" (random-uuid))
+  (let [uri (service-uri :glms-content-svc (str "/save/" (name service) "/" (random-uuid)))
         mock-func-name (str "mock.save." (name service))
         mock-func (g/get js/window mock-func-name)]
     (if (some? mock-func)
@@ -164,7 +152,7 @@
       (fetch uri
              {:mode    "cors"
               :method  "PUT"
-              :headers (add-put-headers db {})
+              :headers (make-put-headers)
               :body    data}))))
 
 (defn handle-invalid-jwt []
