@@ -46,6 +46,7 @@
    (body ctx)
    (.getElementById js/document "app")))
 
+
 (defn init
   [{:keys [translations] :as ctx}]
   (let [ctx (-> ctx
