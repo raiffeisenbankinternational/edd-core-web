@@ -5,9 +5,7 @@
             [reagent.core :as r]
             [edd.events :as events]
             [edd.util :as util]
-            [edd.routing :refer [path-for]]
             [reagent.core :as reagent]
-
 
             [edd.i18n :refer [tr]]
 
@@ -39,11 +37,11 @@
   (let [lang @(rf/subscribe [::subs/selected-language])]
     [:> Grid {:item true
               :xs   12}
-     [:> Button {:on-click   #(rf/dispatch [::events/change-panel (:key item)])
+     [:> Button {:on-click   #(rf/dispatch [::events/navigate item])
                  :key        (:key item)
                  :class-name (:nested classes)
                  :start-icon (reagent/as-element [:> KeyboardArrowRightIcon])}
-      (get-in item [:name lang])]]))
+      (tr item)]]))
 
 (defn language-item
   [ctx]
@@ -74,17 +72,15 @@
        [:> Grid {:item true
                  :xs   10}
         (into
-          [:> Grid {:container true
-                    :item      true
-                    :spacing   1}
+         [:> Grid {:container true
+                   :item      true
+                   :spacing   1}
 
-           (language-item ctx)]
-          (map
-            (fn [item]
-              (menu-item ctx item))
-            menu))
-        ]])
-    ]])
+          (language-item ctx)]
+         (map
+          (fn [item]
+            (menu-item ctx item))
+          menu))]])]])
 
 (defn page
   [{:keys [classes panels app-bar] :as ctx}]
@@ -96,7 +92,8 @@
      [:> Grid {:container  true
                :class-name (:root classes)}
       [:> Grid {:item true
-                :xs   12 :class-name (:header classes)}
+                :xs    12
+                :class-name (:header classes)}
        [:> AppBar {:class-name (:app-bar classes)
                    :position   "static"}
 

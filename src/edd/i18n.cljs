@@ -3,7 +3,6 @@
             [edd.db :as db]
             [edd.subs :as subs]))
 
-
 (def base-translations
   {:language {:en "English"
               :de "Deutsch"}})
@@ -15,7 +14,7 @@
                key
                [key])]
     (get-in
-      @(rf/subscribe [::subs/translations])
-      (concat prop
-              [lang])
-      (str "tr (" key " " lang ")"))))
+     @(rf/subscribe [::subs/translations])
+     (concat prop
+             [lang])
+     (str "tr (" key " " lang ")"))))

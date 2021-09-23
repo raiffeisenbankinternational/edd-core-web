@@ -235,7 +235,8 @@
                  :response-filter (fn [%]
                                     (assoc %
                                            :id
-                                           (get-in % [:result :id]))))))))
+                                           (get-in % [:result :id])))))
+        (.catch #(rf/dispatch (vec (concat on-failure [%])))))))
 
 (rf/reg-fx
  :save-n

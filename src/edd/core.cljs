@@ -15,9 +15,9 @@
 (defn with-custom-styles
   [{:keys [styles]} component]
   ((withStyles
-     (fn [theme]
-       (clj->js
-         (styles theme)))) component))
+    (fn [theme]
+      (clj->js
+       (styles theme)))) component))
 
 (defn body
   [{:keys [theme panels] :as ctx}]
@@ -26,37 +26,38 @@
    [:> (with-custom-styles
          ctx
          (r/reactify-component
-           (fn [props]
-             (views/page
-               (assoc
-                 ctx
-                 :classes (keywordize-keys
-                            (:classes (js->clj props))))))))]])
+          (fn [props]
+            (views/page
+             (assoc
+              ctx
+              :classes (keywordize-keys
+                        (:classes (js->clj props))))))))]])
 
-(defn- dispatch-route [{:keys [handler route-params]}]
-  (re-frame/dispatch [::events/set-active-panel
-                      handler
-                      route-params]))
-
-(defn app-routes
-  [parse-fn]
-  (pushy/start!
-    (pushy/pushy dispatch-route parse-fn)))
+(defn- dispatch-route
+  [url]
+  )
 
 (defn mount-root
   [{:keys [routes] :as ctx}]
-  (re-frame/clear-subscription-cache!)
-  (app-routes
-    (fn [url]
-      (bidi/match-route routes url)))
+  (pushy/start!
+    (pushy/pushy #(re-frame/dispatch [::events/navigate %])
+                 (fn [url] url)))
+
   (dom/render
-    (body ctx)
-    (.getElementById js/document "app")))
+   (body ctx)
+   (.getElementById js/document "app")))
+
 
 (defn init
   [{:keys [translations] :as ctx}]
-  (re-frame/dispatch [::events/initialize-db ctx])
-  (re-frame/dispatch [::events/add-translation i18n/base-translations])
-  (when translations
-    (re-frame/dispatch [::events/add-translation translations]))
-  (mount-root ctx))
+  (let [ctx (-> ctx
+                (assoc :config (js->clj
+                                 (.-eddconfig js/window)
+                                 :keywordize-keys true))
+                (merge (:config ctx {})))]
+    (re-frame/clear-subscription-cache!)
+    (re-frame/dispatch [::events/initialize-db ctx])
+    (re-frame/dispatch [::events/add-translation i18n/base-translations])
+    (when translations
+      (re-frame/dispatch [::events/add-translation translations]))
+    (mount-root ctx)))
