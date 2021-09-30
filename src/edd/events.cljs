@@ -1,19 +1,22 @@
 (ns edd.events
   (:import goog.history.Html5History)
   (:require
-    [re-frame.core :as rf]
-    [pushy.core :as pushy]
-    [bidi.bidi :as bidi]
-    [edd.db :as db]))
+   [re-frame.core :as rf]
+   [pushy.core :as pushy]
+   [bidi.bidi :as bidi]
+   [edd.db :as db]))
 
 (rf/reg-event-db
-  ::initialize-db
-  (fn [db [_ {:keys [config routes]}]]
-    ()
-    (-> db/default-db
-        (merge db)
-        (assoc :config config)
-        (assoc :routes routes))))
+ ::initialize-db
+ (fn [db [_ {:keys [selected-language show-language-switcher? config routes]
+             :or {selected-language :en
+                  show-language-switcher? false}}]]
+   (-> db/default-db
+       (merge db)
+       (assoc-in [::db/selected-language] selected-language)
+       (assoc-in [::db/show-language-switcher?] show-language-switcher?)
+       (assoc :config config)
+       (assoc :routes routes))))
 
 (rf/reg-event-fx
  ::set-active-panel
@@ -27,7 +30,6 @@
  ::toggle-drawer
  (fn [db _]
    (update db ::db/drawer #(not %))))
-
 
 (rf/reg-event-db
  ::change-language
@@ -45,32 +47,32 @@
    (update-in db [::db/translations] #(merge % body))))
 
 (rf/reg-event-fx
-  ::navigate
-  (fn [{:keys [db]} [_ target & [params]]]
-    (let [routes (:routes db)
-          url (::db/url db "/")
-          new-url (if (keyword? target)
-                    (bidi/path-for* routes target params)
-                    target)
-          {:keys [handler route-params]} (if (keyword? target)
-                                           {:handler target
-                                            :route-params (or params {})}
-                                           (bidi/match-route (:routes db) target))
-          pathname (-> js/window
-                       (.-location)
-                       (.-pathname))]
-      (when (and (not= url new-url)
-                 (not
-                   (get-in db [:config :mobile] false)))
-        (.pushState (.-history js/window)
-                    #js {}
-                    ""
-                    new-url))
-      {:dispatch [(keyword (str "initialize-" (name handler) "-db"))
-                  route-params]
-       :db       (assoc db ::db/drawer false
-                           ::db/url new-url
-                           ::db/active-panel handler)})))
+ ::navigate
+ (fn [{:keys [db]} [_ target & [params]]]
+   (let [routes (:routes db)
+         url (::db/url db "/")
+         new-url (if (keyword? target)
+                   (bidi/path-for* routes target params)
+                   target)
+         {:keys [handler route-params]} (if (keyword? target)
+                                          {:handler target
+                                           :route-params (or params {})}
+                                          (bidi/match-route (:routes db) target))
+         pathname (-> js/window
+                      (.-location)
+                      (.-pathname))]
+     (when (and (not= url new-url)
+                (not
+                 (get-in db [:config :mobile] false)))
+       (.pushState (.-history js/window)
+                   #js {}
+                   ""
+                   new-url))
+     {:dispatch [(keyword (str "initialize-" (name handler) "-db"))
+                 route-params]
+      :db       (assoc db ::db/drawer false
+                       ::db/url new-url
+                       ::db/active-panel handler)})))
 
 (rf/reg-event-db
  ::register-menu-item

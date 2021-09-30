@@ -1,11 +1,9 @@
 (ns edd.views
-
   (:require [re-frame.core :as rf]
             [edd.subs :as subs]
             [reagent.core :as r]
             [edd.events :as events]
             [edd.util :as util]
-            [reagent.core :as reagent]
 
             [edd.i18n :refer [tr]]
 
@@ -40,19 +38,8 @@
      [:> Button {:on-click   #(rf/dispatch [::events/navigate item])
                  :key        (:key item)
                  :class-name (:nested classes)
-                 :start-icon (reagent/as-element [:> KeyboardArrowRightIcon])}
+                 :start-icon (r/as-element [:> KeyboardArrowRightIcon])}
       (tr item)]]))
-
-(defn language-item
-  [ctx]
-  [:> Grid {:item true
-            :xs   12}
-   [:> FormControl
-    [:> Select {:value     @(rf/subscribe [::subs/selected-language])
-                :on-change #(rf/dispatch [::events/change-language (-> (.-target %) (.-value) (keyword))])}
-     [:> MenuItem {:value :en} "English"]
-     [:> MenuItem {:value :de} "Deutsch"]]
-    [:> FormHelperText (tr :language)]]])
 
 (defn drawer
   [{:keys [classes menu drawer] :as ctx}]
@@ -74,9 +61,7 @@
         (into
          [:> Grid {:container true
                    :item      true
-                   :spacing   1}
-
-          (language-item ctx)]
+                   :spacing   1}]
          (map
           (fn [item]
             (menu-item ctx item))
@@ -91,8 +76,8 @@
      (drawer ctx)
      [:> Grid {:container  true
                :class-name (:root classes)}
-      [:> Grid {:item true
-                :xs    12
+      [:> Grid {:item       true
+                :xs         12
                 :class-name (:header classes)}
        [:> AppBar {:class-name (:app-bar classes)
                    :position   "static"}
@@ -105,7 +90,7 @@
 
          (or (app-bar) ":app-bar placeholder")]]]
 
-      [:> Grid {:container true}
+      [:> Grid {:container true :class-name (:page-wrapper classes)}
        (util/placeholder panels classes)]]]
     [:> Grid {:container true :item true} "Loading"]))
 

@@ -1,59 +1,64 @@
 (ns edd.subs
   (:require
    [edd.db :as db]
-   [re-frame.core :as re-frame]))
+   [re-frame.core :as rf]))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::name
  (fn [db]
    (:name db)))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::active-panel
  (fn [db]
    (::db/active-panel db)))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::drawer
  (fn [db]
    (::db/drawer db)))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::ready
  (fn [db]
    (::db/ready db)))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::menu-expanded
  (fn [db]
    (::db/menu-expanded db)))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::i18n
  (fn [db]
    (::db/i18n db)))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::selected-language
  (fn [db]
    (::db/selected-language db)))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::translations
  (fn [db]
    (::db/translations db)))
 
-(re-frame/reg-sub
-  ::config
-  (fn [db]
-    (:config db)))
+(rf/reg-sub
+ ::config
+ (fn [db]
+   (:config db)))
 
-(re-frame/reg-sub
+(rf/reg-sub
  ::menu-items
  (fn [db]
    (::db/menu-items db)))
 
-(re-frame/reg-sub
-  ::logged-in
-  (fn [db]
-    (some? (:auth db))))
+(rf/reg-sub
+ ::logged-in
+ (fn [db]
+   (some? (get-in db [::db/user]))))
+
+(rf/reg-sub
+ ::show-language-switcher?
+ (fn [db]
+   (get-in db [::db/show-language-switcher?])))
